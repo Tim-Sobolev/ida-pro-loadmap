@@ -28,8 +28,8 @@ namespace MapFile {
 
 /// @name Strings used to identify start of symbol table in various MAP files.
 /// @{
-const char MSVC_HDR_START[]        = "Address         Publics by Value              Rva+Base     Lib:Object";
-const char MSVC_HDR_START2[]       = "Address         Publics by Value              Rva+Base       Lib:Object";
+const char MSVC_HDR_START[]        = "Address         Publics by Value              Rva+Base";
+const char MSVC_HDR_STATIC[]       = "Static symbols";
 const char BCCL_HDR_NAME_START[]   = "Address         Publics by Name";
 const char BCCL_HDR_VALUE_START[]  = "Address         Publics by Value";
 const char WATCOM_MEMMAP_START[]   = "Address        Symbol";
@@ -188,8 +188,10 @@ const char * MapFile::findEOL(const char * pStart, const char * pEnd)
 ////////////////////////////////////////////////////////////////////////////////
 MapFile::SectionType MapFile::recognizeSectionStart(const char *pLine, size_t lineLen)
 {
-    if (strncasecmp(pLine, MSVC_HDR_START, lineLen) == 0 || strncasecmp(pLine, MSVC_HDR_START2, lineLen) == 0)
+    if (lineLen > strlen(MSVC_HDR_START) && strncasecmp(pLine, MSVC_HDR_START, strlen(MSVC_HDR_START)) == 0)
         return MapFile::MSVC_MAP;
+    /* if (strncasecmp(pLine, MSVC_HDR_STATIC, lineLen) == 0)
+        return MapFile::MSVC_MAP; */
     if (strncasecmp(pLine, BCCL_HDR_NAME_START, lineLen) == 0)
         return MapFile::BCCL_NAM_MAP;
     if (strncasecmp(pLine, BCCL_HDR_VALUE_START, lineLen) == 0)
@@ -252,15 +254,19 @@ MapFile::ParseResult MapFile::parseMsSymbolLine(MapFile::MAPSymbol &sym, const c
 {
     // Get segment number, address, name, by pass spaces at beginning,
     // between ':' character, between address and name
-    long lineCut = lineLen;
+    size_t lineCut = lineLen;
     if (lineCut > MAXNAMELEN + minLineLen)
         lineCut = MAXNAMELEN + minLineLen;
     char * dupLine = (char *)std::malloc(lineCut+1);
-    strncpy(dupLine,pLine,lineCut);
+    if (dupLine == nullptr)
+    {
+        return MapFile::SKIP_LINE;
+    }
+    strncpy(dupLine, pLine, lineCut);
     dupLine[lineCut] = '\0';
     if (strncasecmp(dupLine, ";", 1) == 0)
     {
-        strncpy(sym.name,dupLine+1,MAXNAMELEN-1);
+        strncpy(sym.name, dupLine+1, MAXNAMELEN-1);
         sym.name[MAXNAMELEN] = '\0';
         std::free(dupLine);
         return MapFile::COMMENT_LINE;
@@ -303,11 +309,15 @@ MapFile::ParseResult MapFile::parseWatcomSymbolLine(MapFile::MAPSymbol &sym, con
 {
     // Get segment number, address, name, by pass spaces at beginning,
     // between ':' character, between address and name
-    long lineCut = lineLen;
+    size_t lineCut = lineLen;
     if (lineCut > MAXNAMELEN + minLineLen)
         lineCut = MAXNAMELEN + minLineLen;
     char * dupLine = (char *)std::malloc(lineCut+1);
-    strncpy(dupLine,pLine,lineCut);
+    if (dupLine == nullptr)
+    {
+        return MapFile::SKIP_LINE;
+    }
+    strncpy(dupLine, pLine, lineCut);
     dupLine[lineCut] = '\0';
     if (strncasecmp(dupLine, ";", 1) == 0)
     {
@@ -369,7 +379,11 @@ MapFile::ParseResult MapFile::parseGccSymbolLine(MapFile::MAPSymbol &sym, const 
     if (lineCut > MAXNAMELEN + minLineLen)
         lineCut = MAXNAMELEN + minLineLen;
     char * dupLine = (char *)std::malloc(lineCut+1);
-    strncpy(dupLine,pLine,lineCut);
+    if (dupLine == nullptr)
+    {
+        return MapFile::SKIP_LINE;
+    }
+    strncpy(dupLine, pLine, lineCut);
     dupLine[lineCut] = '\0';
     if (strncasecmp(dupLine, ";", 1) == 0)
     {
